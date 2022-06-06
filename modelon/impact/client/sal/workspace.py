@@ -202,5 +202,4 @@ class WorkspaceService:
 
     def get_vcs_matchings(self, shared_definition: Dict[str, Any]):
         url = (self._base_uri / "api/workspace-imports-matchings").resolve()
-        resp = self._http_client.post_json(url, body=shared_definition)
-        return resp
+        return self._http_client.post_json(url, body=shared_definition)

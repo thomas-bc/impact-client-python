@@ -16,6 +16,7 @@ from modelon.impact.client.operations.model_executable import (
     CachedModelExecutableOperation,
     ModelExecutableOperation,
 )
+from modelon.impact.client.entities.workspace import WorkspaceDefinition
 from unittest.mock import MagicMock
 
 
@@ -241,4 +242,25 @@ def create_model_exe_operation(
         fmu_id,
         workspace_service or MagicMock(),
         model_exe_service or MagicMock(),
+    )
+
+
+def create_workspace_definition():
+    return WorkspaceDefinition(
+        {
+            "definition": {
+                "name": "test",
+                "projects": [
+                    {
+                        "reference": {
+                            "id": "c1f1d74f0b612c6b67e4165bf9a1ad30b2630039",
+                            "vcsUri": "git+https://github.com/tj/git-extras.git@master:cd8fe4f6e2bff02f88fc1baeb7260c83160ee927",
+                        },
+                        "disabled": True,
+                        "disabledContent": [],
+                    }
+                ],
+                "dependencies": [],
+            }
+        }
     )

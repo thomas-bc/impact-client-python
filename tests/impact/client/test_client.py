@@ -1,10 +1,15 @@
 import pytest
 from unittest.mock import MagicMock
 from modelon.impact.client import Client
+from modelon.impact.client.client import VCSMatching, VCSProjectMeta
 import modelon.impact.client.exceptions as exceptions
+from modelon.impact.client.operations.workspace import WorkspaceImportOperation
 import modelon.impact.client.sal.exceptions as sal_exceptions
 from tests.impact.client.fixtures import *
-from tests.impact.client.helpers import create_workspace_entity
+from tests.impact.client.helpers import (
+    create_workspace_entity,
+    create_workspace_definition,
+)
 
 
 def test_create_workspace(create_workspace):
@@ -179,3 +184,48 @@ def test_client_connect_against_jupyterhub_can_authorize(jupyterhub_api):
 def test_no_assigned_license_error(user_with_no_license):
     with pytest.raises(exceptions.NoAssignedLicenseError):
         Client(url=user_with_no_license.url, context=user_with_no_license.context)
+
+
+def test_get_vcs_matchings(get_vcs_matchings, get_projects):
+    client = Client(url=get_vcs_matchings.url, context=get_vcs_matchings.context)
+    definition = create_workspace_definition()
+    vcs_matchings = client.get_vcs_matchings(definition)
+    assert vcs_matchings == [
+        VCSMatching(
+            entry_id="c1f1d74f0b612c6b67e4165bf9a1ad30b2630039",
+            vcs_uri="git+https://github.com/tj/git-extras.git@master:cd8fe4f6e2bff02f88fc1baeb7260c83160ee927",
+            project_meta=[
+                VCSProjectMeta(
+                    project_id='1e2a2a37efaad57c1b59519c9aca6aa4d5417494',
+                    project_name='NewProjectTrunk',
+                ),
+                VCSProjectMeta(
+                    project_id='da282cc77feaa60fc93879a7f39e27ab78304940',
+                    project_name='NewProjectBranch',
+                ),
+            ],
+        )
+    ]
+
+
+def test_import_from_shared_definition(import_from_shared_definition):
+    client = Client(
+        url=import_from_shared_definition.url,
+        context=import_from_shared_definition.context,
+    )
+    definition = create_workspace_definition()
+    operation = client.import_from_shared_definition(definition, interactive=False)
+    assert isinstance(operation, WorkspaceImportOperation)
+
+
+def test_failed_import_from_shared_definition(
+    import_from_shared_definition, get_failed_workspace_upload_status
+):
+    client = Client(
+        url=import_from_shared_definition.url,
+        context=import_from_shared_definition.context,
+    )
+    definition = create_workspace_definition()
+    with pytest.raises(exceptions.IllegalWorkspaceImport):
+        client.import_from_shared_definition(definition, interactive=False).wait()
+
