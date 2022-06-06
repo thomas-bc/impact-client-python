@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import logging
 import os
+import tempfile
+import json
 from typing import Any, List, Dict, Optional, Union
 from modelon.impact.client.sal.project import ProjectService
 from modelon.impact.client.sal.workspace import WorkspaceService
@@ -77,6 +79,42 @@ class WorkspaceDefinition:
                 ProjectEntry.from_dict(dependency) for dependency in dependencies
             ],
         )
+
+
+class WorkspaceDefinition:
+    def __init__(self, data: Dict[str, Any]):
+        self.data = data
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.data
+
+    def to_file(self, path: Optional[str] = None) -> str:
+        if path is None:
+            path = os.path.join(tempfile.gettempdir(), "impact-downloads")
+        os.makedirs(path, exist_ok=True)
+        definition_path = os.path.join(path, self.data['definition']['name'] + ".json")
+        with open(definition_path, "w", encoding='utf-8') as f:
+            json.dump(self.data, f, indent=4)
+        return definition_path
+
+    def with_selected_matchings(self, entries):
+        selected_matchings = {"selectedMatchings": {"entries": entries}}
+        return WorkspaceDefinition({**self.data, **selected_matchings})
+
+    @classmethod
+    def from_file(cls, path: str):
+        with open(path) as json_file:
+            data = json.load(json_file)
+        return cls(data)
+
+    def get_vcs_uri_from_reference_id(self, reference_id: str):
+        projects = (
+            self.data["definition"]["projects"]
+            + self.data["definition"]["dependencies"]
+        )
+        for project in projects:
+            if project["reference"]["id"] == reference_id:
+                return project["reference"]["vcsUri"]
 
 
 class Workspace:
@@ -743,3 +781,8 @@ class Workspace:
             return self.create_project(DEFAULT_PROJECT_NAME)
 
         return project[0]
+
+    def get_shared_definition(self, strict: bool = False):
+        return WorkspaceDefinition(
+            self._workspace_sal.shared_definition_get(self._workspace_id, strict=strict)
+        )

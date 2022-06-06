@@ -11,6 +11,7 @@ from modelon.impact.client.sal.custom_function import CustomFunctionService
 from modelon.impact.client.sal.model_executable import ModelExecutableService
 from modelon.impact.client.sal.experiment import ExperimentService
 from modelon.impact.client.sal.users import UsersService
+from modelon.impact.client.sal.project import ProjectService
 from modelon.impact.client.sal.context import Context
 from modelon.impact.client.sal.uri import URI
 
@@ -36,6 +37,7 @@ class Service:
             self._base_uri, self._http_client
         )
         self.experiment = ExperimentService(self._base_uri, self._http_client)
+        self.project = ProjectService(self._base_uri, self._http_client)
         self.custom_function = CustomFunctionService(self._base_uri, self._http_client)
         self.users = UsersService(self._base_uri, self._http_client)
 
@@ -63,6 +65,7 @@ class Service:
         self.experiment = _decorate_all_methods(
             self.experiment, retry_with_login_decorator
         )
+        self.project = _decorate_all_methods(self.project, retry_with_login_decorator)
         self.custom_function = _decorate_all_methods(
             self.custom_function, retry_with_login_decorator
         )
