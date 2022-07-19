@@ -1,5 +1,7 @@
 from copy import deepcopy
 from collections.abc import Mapping
+from typing import Union, List, Dict, Any
+from abc import ABC, abstractmethod
 
 
 def _set_options(options, **modified):
@@ -9,20 +11,19 @@ def _set_options(options, **modified):
     return opts
 
 
-class ExecutionOptions(Mapping):
+class BaseExecutionOptions(Mapping, ABC):
     """
-    An class containing the simulation, compiler, solver and runtime options settings.
+    Base class for the simulation, compiler, solver and runtime options settings.
     """
 
     def __init__(
-        self, values, custom_function_name, custom_function_service=None,
+        self, values: Dict[str, Any], custom_function_name: str,
     ):
         self._values = values
-        self._name = custom_function_name
-        self._custom_func_sal = custom_function_service
+        self._custom_function_name = custom_function_name
 
     def __repr__(self):
-        return f"Execution option for '{self._name}'"
+        return f"{type(self).__name__} for '{self._custom_function_name}'"
 
     def __getitem__(self, key):
         return self._values[key]
@@ -33,14 +34,24 @@ class ExecutionOptions(Mapping):
     def __len__(self):
         return self._values.__len__()
 
+    @abstractmethod
+    def data(self, values):
+        """
+        Returns the option class with values.
+
+        Parameters:
+
+            values --
+                A keyworded, variable-length argument list of options.
+        """
+
     def with_values(self, **modified):
-        """Sets/updates the compiler options.
+        """Sets/updates the options.
 
         Parameters:
 
             parameters --
-                A keyworded, variable-length argument list of compiler
-                options.
+                A keyworded, variable-length argument list of options.
 
         Example::
 
@@ -51,5 +62,82 @@ class ExecutionOptions(Mapping):
             sol_opts = custom_function.get_solver_options().with_values(rtol=1e-7)
             sim_opts = custom_function.get_simulation_options().with_values(ncp=500)
         """
-        values = _set_options(self._values, **modified,)
-        return ExecutionOptions(values, self._name, self._custom_func_sal)
+        values = _set_options(self._values, **modified)
+        return self.data(values)
+
+
+class CompilerOptions(BaseExecutionOptions):
+    def data(self, values):
+        """Returns a new CompilerOptions class instance.
+
+        Parameters:
+
+            values --
+                A keyworded, variable-length argument list of options.
+        """
+        return CompilerOptions(values, self._custom_function_name)
+
+
+class RuntimeOptions(BaseExecutionOptions):
+    def data(self, values):
+        """Returns a new RuntimeOptions class instance.
+
+        Parameters:
+
+            values --
+                A keyworded, variable-length argument list of options.
+        """
+        return RuntimeOptions(values, self._custom_function_name)
+
+
+class SimulationOptions(BaseExecutionOptions):
+    def data(self, values):
+        """Returns a new SimulationOptions class instance.
+
+        Parameters:
+
+            values --
+                A keyworded, variable-length argument list of options.
+        """
+        return SimulationOptions(values, self._custom_function_name,)
+
+    def with_result_filter(self, pattern: Union[str, List[str]]):
+        """Sets the variable filter for results.
+
+        Parameters:
+
+            parameters --
+                A keyworded, variable-length argument list of options.
+
+        Example::
+
+            sim_opts = custom_function.get_simulation_options().with_result_filter(
+                pattern = ["*.phi"])
+        """
+        if not isinstance(pattern, str):
+            pattern = str(pattern)
+        return self.with_values(**{'filter': pattern})
+
+
+class SolverOptions(BaseExecutionOptions):
+    def data(self, values):
+        """Returns a new SolverOptions class instance.
+
+        Parameters:
+
+            values --
+                A keyworded, variable-length argument list of options.
+        """
+        return SolverOptions(values, self._custom_function_name)
+
+
+class ExecutionOptions(BaseExecutionOptions):
+    def data(self, values):
+        """Returns a new ExecutionOptions class instance.
+
+        Parameters:
+
+            values --
+                A keyworded, variable-length argument list of options.
+        """
+        return ExecutionOptions(values, self._custom_function_name)
