@@ -5,7 +5,12 @@ import pytest
 import requests
 import requests_mock
 from modelon.impact.client import Client
-from modelon.impact.client.options import ExecutionOptions
+from modelon.impact.client.options import (
+    CompilerOptions,
+    SimulationOptions,
+    SolverOptions,
+    RuntimeOptions,
+)
 from tests.impact.client.helpers import (
     create_workspace_entity,
     create_model_exe_entity,
@@ -1133,7 +1138,9 @@ def compiler_options():
     }
     custom_function_service.custom_function_options_get.return_value = opts
     custom_function_service.custom_function_default_options_get.return_value = def_opts
-    return ExecutionOptions(opts["compiler"], "dynamic", custom_function_service)
+    return CompilerOptions(
+        'workspace_1', opts["compiler"], "dynamic", custom_function_service
+    )
 
 
 @pytest.fixture
@@ -1153,7 +1160,9 @@ def runtime_options():
     }
     custom_function_service.custom_function_options_get.return_value = opts
     custom_function_service.custom_function_default_options_get.return_value = def_opts
-    return ExecutionOptions(opts["runtime"], "dynamic", custom_function_service)
+    return RuntimeOptions(
+        'workspace_1', opts["runtime"], "dynamic", custom_function_service
+    )
 
 
 @pytest.fixture
@@ -1173,7 +1182,9 @@ def simulation_options():
     }
     custom_function_service.custom_function_options_get.return_value = opts
     custom_function_service.custom_function_default_options_get.return_value = def_opts
-    return ExecutionOptions(opts["simulation"], "dynamic", custom_function_service)
+    return SimulationOptions(
+        'workspace_1', opts["simulation"], "dynamic", custom_function_service
+    )
 
 
 @pytest.fixture
@@ -1193,7 +1204,9 @@ def solver_options():
     }
     custom_function_service.custom_function_options_get.return_value = opts
     custom_function_service.custom_function_default_options_get.return_value = def_opts
-    return ExecutionOptions(opts["solver"], "dynamic", custom_function_service)
+    return SolverOptions(
+        'workspace_1', opts["solver"], "dynamic", custom_function_service
+    )
 
 
 @pytest.fixture

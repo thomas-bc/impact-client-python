@@ -1,7 +1,12 @@
 import logging
 from typing import Any, List, Dict
 from modelon.impact.client.sal.custom_function import CustomFunctionService
-from modelon.impact.client.options import ExecutionOptions
+from modelon.impact.client.options import (
+    CompilerOptions,
+    RuntimeOptions,
+    SimulationOptions,
+    SolverOptions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -111,14 +116,14 @@ class CustomFunction:
         """Custom_function parameters and value as a dictionary"""
         return {p.name: p.value for p in self._param_by_name.values()}
 
-    def get_compiler_options(self) -> ExecutionOptions:
+    def get_compiler_options(self) -> CompilerOptions:
         """
-        Return a modelon.impact.client.options.ExecutionOptions object.
+        Return a modelon.impact.client.options.CompilerOptions object.
 
         Returns:
 
             compiler_options --
-                A modelon.impact.client.options.ExecutionOptions object.
+                A modelon.impact.client.options.CompilerOptions object.
 
         Example::
 
@@ -128,16 +133,18 @@ class CustomFunction:
         options = self._custom_func_sal.custom_function_options_get(
             self._workspace_id, self._name
         )
-        return ExecutionOptions(options["compiler"], self._name, self._custom_func_sal)
+        return CompilerOptions(
+            self._workspace_id, options["compiler"], self._name, self._custom_func_sal,
+        )
 
-    def get_runtime_options(self) -> ExecutionOptions:
+    def get_runtime_options(self) -> RuntimeOptions:
         """
-        Return a modelon.impact.client.options.ExecutionOptions object.
+        Return a modelon.impact.client.options.RuntimeOptions object.
 
         Returns:
 
             runtime_options --
-                A modelon.impact.client.options.ExecutionOptions object.
+                A modelon.impact.client.options.RuntimeOptions object.
 
         Example::
 
@@ -147,16 +154,18 @@ class CustomFunction:
         options = self._custom_func_sal.custom_function_options_get(
             self._workspace_id, self._name
         )
-        return ExecutionOptions(options["runtime"], self._name, self._custom_func_sal)
+        return RuntimeOptions(
+            self._workspace_id, options["runtime"], self._name, self._custom_func_sal,
+        )
 
-    def get_solver_options(self) -> ExecutionOptions:
+    def get_solver_options(self) -> SolverOptions:
         """
-        Return a modelon.impact.client.options.ExecutionOptions object.
+        Return a modelon.impact.client.options.SolverOptions object.
 
         Returns:
 
             solver_options --
-                A modelon.impact.client.options.ExecutionOptions object.
+                A modelon.impact.client.options.SolverOptions object.
 
         Example::
 
@@ -166,16 +175,18 @@ class CustomFunction:
         options = self._custom_func_sal.custom_function_options_get(
             self._workspace_id, self._name
         )
-        return ExecutionOptions(options["solver"], self._name, self._custom_func_sal)
+        return SolverOptions(
+            self._workspace_id, options["solver"], self._name, self._custom_func_sal,
+        )
 
-    def get_simulation_options(self) -> ExecutionOptions:
+    def get_simulation_options(self) -> SimulationOptions:
         """
-        Return a modelon.impact.client.options.ExecutionOptions object.
+        Return a modelon.impact.client.options.SimulationOptions object.
 
         Returns:
 
             simulation_options --
-                A modelon.impact.client.options.ExecutionOptions object.
+                A modelon.impact.client.options.SimulationOptions object.
 
         Example::
 
@@ -185,6 +196,9 @@ class CustomFunction:
         options = self._custom_func_sal.custom_function_options_get(
             self._workspace_id, self._name
         )
-        return ExecutionOptions(
-            options["simulation"], self._name, self._custom_func_sal
+        return SimulationOptions(
+            self._workspace_id,
+            options["simulation"],
+            self._name,
+            self._custom_func_sal,
         )
