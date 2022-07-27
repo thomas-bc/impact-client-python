@@ -1,6 +1,5 @@
 from modelon.impact.client.sal.uri import URI
 import modelon.impact.client.sal.service
-from modelon.impact.client.sal.experiment import ResultFormat
 from tests.impact.client.fixtures import *
 
 
@@ -28,9 +27,7 @@ class TestCustomFunctionService:
         service = modelon.impact.client.sal.service.Service(
             uri=uri, context=get_custom_function_default_options.context
         )
-        data = service.custom_function.custom_function_default_options_get(
-            'WS', 'cust_func'
-        )
+        data = service.options.default_options_get('WS', 'cust_func')
         assert data == {'compiler': {'c_compiler': 'gcc'}}
 
     def test_get_custom_function_options(self, get_custom_function_options):
@@ -38,6 +35,6 @@ class TestCustomFunctionService:
         service = modelon.impact.client.sal.service.Service(
             uri=uri, context=get_custom_function_options.context
         )
-        data = service.custom_function.custom_function_options_get('WS', 'cust_func')
+        data = service.options.custom_function_options_get('WS', 'cust_func')
         assert data == {"compiler": {"generate_html_diagnostics": True}}
 

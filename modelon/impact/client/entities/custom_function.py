@@ -1,6 +1,7 @@
 import logging
 from typing import Any, List, Dict
 from modelon.impact.client.sal.custom_function import CustomFunctionService
+from modelon.impact.client.sal.options import OptionsService
 from modelon.impact.client.options import (
     CompilerOptions,
     RuntimeOptions,
@@ -60,6 +61,7 @@ class CustomFunction:
         name: str,
         parameter_data: List[Dict[str, Any]],
         custom_function_service: CustomFunctionService,
+        options_service: OptionsService,
     ):
         self._name = name
         self._workspace_id = workspace_id
@@ -71,6 +73,7 @@ class CustomFunction:
             for p in parameter_data
         }
         self._custom_func_sal = custom_function_service
+        self._options_sal = options_service
 
     def __repr__(self):
         return f"Custom function '{self._name}'"
@@ -97,7 +100,11 @@ class CustomFunction:
             custom_function.with_parameters(start_time=0.0, final_time=2.0)
         """
         new = CustomFunction(
-            self._workspace_id, self._name, self._parameter_data, self._custom_func_sal
+            self._workspace_id,
+            self._name,
+            self._parameter_data,
+            self._custom_func_sal,
+            self._options_sal,
         )
         for name, value in modified.items():
             if name not in new._param_by_name:
@@ -130,12 +137,10 @@ class CustomFunction:
             opts = custom_function.get_compiler_options()
             opts_2 = opts.with_values(c_compiler='gcc')
         """
-        options = self._custom_func_sal.custom_function_options_get(
+        options = self._options_sal.custom_function_options_get(
             self._workspace_id, self._name
         )
-        return CompilerOptions(
-            self._workspace_id, options["compiler"], self._name, self._custom_func_sal,
-        )
+        return CompilerOptions(options["compiler"], self._name, self._options_sal)
 
     def get_runtime_options(self) -> RuntimeOptions:
         """
@@ -151,12 +156,10 @@ class CustomFunction:
             opts = custom_function.get_runtime_options()
             opts_2 = opts.with_values(cs_solver=0)
         """
-        options = self._custom_func_sal.custom_function_options_get(
+        options = self._options_sal.custom_function_options_get(
             self._workspace_id, self._name
         )
-        return RuntimeOptions(
-            self._workspace_id, options["runtime"], self._name, self._custom_func_sal,
-        )
+        return RuntimeOptions(options["runtime"], self._name, self._options_sal)
 
     def get_solver_options(self) -> SolverOptions:
         """
@@ -172,12 +175,10 @@ class CustomFunction:
             opts = custom_function.get_solver_options()
             opts_2 = opts.with_values(rtol=1e-7)
         """
-        options = self._custom_func_sal.custom_function_options_get(
+        options = self._options_sal.custom_function_options_get(
             self._workspace_id, self._name
         )
-        return SolverOptions(
-            self._workspace_id, options["solver"], self._name, self._custom_func_sal,
-        )
+        return SolverOptions(options["solver"], self._name, self._options_sal)
 
     def get_simulation_options(self) -> SimulationOptions:
         """
@@ -193,12 +194,7 @@ class CustomFunction:
             opts = custom_function.get_simulation_options()
             opts_2 = opts.with_values(ncp=500)
         """
-        options = self._custom_func_sal.custom_function_options_get(
+        options = self._options_sal.custom_function_options_get(
             self._workspace_id, self._name
         )
-        return SimulationOptions(
-            self._workspace_id,
-            options["simulation"],
-            self._name,
-            self._custom_func_sal,
-        )
+        return SimulationOptions(options["simulation"], self._name, self._options_sal)

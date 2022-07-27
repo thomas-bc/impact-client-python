@@ -172,6 +172,7 @@ class Client:
             self._sal.model_executable,
             self._sal.experiment,
             self._sal.custom_function,
+            self._sal.options,
         )
 
     def get_workspaces(self):
@@ -195,6 +196,7 @@ class Client:
                 self._sal.model_executable,
                 self._sal.experiment,
                 self._sal.custom_function,
+                self._sal.options,
             )
             for item in resp["data"]["items"]
         ]
@@ -224,6 +226,7 @@ class Client:
             self._sal.model_executable,
             self._sal.experiment,
             self._sal.custom_function,
+            self._sal.options,
         )
 
     def upload_workspace(self, path_to_workspace):
@@ -251,4 +254,5 @@ class Client:
             self._sal.model_executable,
             self._sal.experiment,
             self._sal.custom_function,
+            self._sal.options,
         )

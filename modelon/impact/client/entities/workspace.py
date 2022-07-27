@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Any, List, Dict, Optional, Union
+from modelon.impact.client.sal.options import OptionsService
 from modelon.impact.client.sal.workspace import WorkspaceService
 from modelon.impact.client.sal.model_executable import ModelExecutableService
 from modelon.impact.client.sal.experiment import ExperimentService
@@ -38,12 +39,14 @@ class Workspace:
         model_exe_service: ModelExecutableService,
         experiment_service: ExperimentService,
         custom_function_service: CustomFunctionService,
+        options_service: OptionsService,
     ):
         self._workspace_id = workspace_id
         self._workspace_sal = workspace_service
         self._model_exe_sal = model_exe_service
         self._exp_sal = experiment_service
         self._custom_func_sal = custom_function_service
+        self._options_sal = options_service
 
     def __repr__(self):
         return f"Workspace with id '{self._workspace_id}'"
@@ -82,6 +85,7 @@ class Workspace:
             custom_function["name"],
             custom_function["parameters"],
             self._custom_func_sal,
+            self._options_sal,
         )
 
     def get_custom_functions(self) -> List[CustomFunction]:
@@ -106,6 +110,7 @@ class Workspace:
                 custom_function["name"],
                 custom_function["parameters"],
                 self._custom_func_sal,
+                self._options_sal,
             )
             for custom_function in custom_functions["data"]["items"]
         ]
@@ -325,6 +330,7 @@ class Workspace:
             self._model_exe_sal,
             self._exp_sal,
             self._custom_func_sal,
+            self._options_sal,
         )
 
     def get_model(self, class_name: str) -> Model:

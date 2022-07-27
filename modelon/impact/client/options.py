@@ -2,6 +2,7 @@ from copy import deepcopy
 from collections.abc import Mapping
 from typing import Union, List, Dict, Any
 from abc import ABC, abstractmethod
+from modelon.impact.client.sal.options import OptionsService
 
 
 def _set_options(options, **modified):
@@ -18,15 +19,13 @@ class ExecutionOptions(Mapping, ABC):
 
     def __init__(
         self,
-        workspace_id: str,
         values: Dict[str, Any],
         custom_function_name: str,
-        custom_function_service=None,
+        options_service: OptionsService,
     ):
-        self._workspace_id = workspace_id
         self._values = values
         self._custom_function_name = custom_function_name
-        self._custom_func_sal = custom_function_service
+        self._options_sal = options_service
 
     def __repr__(self):
         return f"{self.name} option for '{self._custom_function_name}'"
@@ -42,7 +41,7 @@ class ExecutionOptions(Mapping, ABC):
 
     @property
     @abstractmethod
-    def name(self):
+    def name(self) -> str:
         """
         Returns the option name.
         """
@@ -93,8 +92,8 @@ class ExecutionOptions(Mapping, ABC):
             sol_opts = custom_function.get_solver_options().with_defaults()
             sim_opts = custom_function.get_simulation_options().with_defaults()
         """
-        default_opts = self._custom_func_sal.custom_function_default_options_get(
-            self._workspace_id, self._custom_function_name
+        default_opts = self._options_sal.default_options_get(
+            "dummy", self._custom_function_name
         )[self.name]
         return self.with_values(**default_opts)
 
@@ -112,12 +111,7 @@ class CompilerOptions(ExecutionOptions):
             values --
                 A keyworded, variable-length argument list of options.
         """
-        return CompilerOptions(
-            self._workspace_id,
-            values,
-            self._custom_function_name,
-            self._custom_func_sal,
-        )
+        return CompilerOptions(values, self._custom_function_name, self._options_sal)
 
 
 class RuntimeOptions(ExecutionOptions):
@@ -133,12 +127,7 @@ class RuntimeOptions(ExecutionOptions):
             values --
                 A keyworded, variable-length argument list of options.
         """
-        return RuntimeOptions(
-            self._workspace_id,
-            values,
-            self._custom_function_name,
-            self._custom_func_sal,
-        )
+        return RuntimeOptions(values, self._custom_function_name, self._options_sal)
 
 
 class SimulationOptions(ExecutionOptions):
@@ -154,12 +143,7 @@ class SimulationOptions(ExecutionOptions):
             values --
                 A keyworded, variable-length argument list of options.
         """
-        return SimulationOptions(
-            self._workspace_id,
-            values,
-            self._custom_function_name,
-            self._custom_func_sal,
-        )
+        return SimulationOptions(values, self._custom_function_name, self._options_sal)
 
     def with_result_filter(self, pattern: Union[str, List[str]]):
         """Sets the variable filter for results.
@@ -192,9 +176,4 @@ class SolverOptions(ExecutionOptions):
             values --
                 A keyworded, variable-length argument list of options.
         """
-        return SolverOptions(
-            self._workspace_id,
-            values,
-            self._custom_function_name,
-            self._custom_func_sal,
-        )
+        return SolverOptions(values, self._custom_function_name, self._options_sal)

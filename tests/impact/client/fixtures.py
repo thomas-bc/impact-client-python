@@ -1052,33 +1052,37 @@ def workspace_ops(single_workspace):
 @pytest.fixture
 def custom_function():
     custom_function_service = MagicMock()
+    options_service = MagicMock()
     custom_function_service.custom_function_get.return_value = {
         'name': 'dynamic',
         'parameters': _custom_function_parameter_list(),
     }
-    custom_function_service.custom_function_options_get.return_value = {
+    options_service.custom_function_options_get.return_value = {
         "compiler": {"c_compiler": "gcc"},
         "runtime": {"cs_solver": 0},
         "simulation": {"ncp": 500},
         "solver": {'atol': 1e-7, 'rtol': 1e-9},
     }
     return create_custom_function_entity(
-        'test_ws', 'dynamic', _custom_function_parameter_list(), custom_function_service
+        'test_ws',
+        'dynamic',
+        _custom_function_parameter_list(),
+        options_service=options_service,
     )
 
 
 @pytest.fixture
 def custom_function_no_param():
-    custom_function_service = MagicMock()
+    options_service = MagicMock()
     opts = {
         "compiler": {"c_compiler": "gcc"},
         "runtime": {},
         "simulation": {"ncp": 500},
         "solver": {},
     }
-    custom_function_service.custom_function_options_get.return_value = opts
+    options_service.custom_function_options_get.return_value = opts
     return create_custom_function_entity(
-        "test_ws", 'dynamic', [], custom_function_service
+        "test_ws", 'dynamic', [], options_service=options_service
     )
 
 
@@ -1123,7 +1127,7 @@ def model_compile_cancelled():
 
 @pytest.fixture
 def compiler_options():
-    custom_function_service = MagicMock()
+    options_service = MagicMock()
     opts = {
         "compiler": {"c_compiler": "gcc"},
         "runtime": {"log_level": 3},
@@ -1136,16 +1140,14 @@ def compiler_options():
         "simulation": {"ncp": 500},
         "solver": {"rtol": 1e-5},
     }
-    custom_function_service.custom_function_options_get.return_value = opts
-    custom_function_service.custom_function_default_options_get.return_value = def_opts
-    return CompilerOptions(
-        'workspace_1', opts["compiler"], "dynamic", custom_function_service
-    )
+    options_service.custom_function_options_get.return_value = opts
+    options_service.default_options_get.return_value = def_opts
+    return CompilerOptions(opts["compiler"], "dynamic", options_service)
 
 
 @pytest.fixture
 def runtime_options():
-    custom_function_service = MagicMock()
+    options_service = MagicMock()
     opts = {
         "compiler": {"c_compiler": "gcc"},
         "runtime": {"log_level": 3},
@@ -1158,16 +1160,14 @@ def runtime_options():
         "simulation": {"ncp": 500},
         "solver": {"rtol": 1e-5},
     }
-    custom_function_service.custom_function_options_get.return_value = opts
-    custom_function_service.custom_function_default_options_get.return_value = def_opts
-    return RuntimeOptions(
-        'workspace_1', opts["runtime"], "dynamic", custom_function_service
-    )
+    options_service.custom_function_options_get.return_value = opts
+    options_service.default_options_get.return_value = def_opts
+    return RuntimeOptions(opts["runtime"], "dynamic", options_service)
 
 
 @pytest.fixture
 def simulation_options():
-    custom_function_service = MagicMock()
+    options_service = MagicMock()
     opts = {
         "compiler": {"c_compiler": "gcc"},
         "runtime": {"log_level": 3},
@@ -1180,16 +1180,14 @@ def simulation_options():
         "simulation": {"ncp": 500},
         "solver": {"rtol": 1e-5},
     }
-    custom_function_service.custom_function_options_get.return_value = opts
-    custom_function_service.custom_function_default_options_get.return_value = def_opts
-    return SimulationOptions(
-        'workspace_1', opts["simulation"], "dynamic", custom_function_service
-    )
+    options_service.custom_function_options_get.return_value = opts
+    options_service.default_options_get.return_value = def_opts
+    return SimulationOptions(opts["simulation"], "dynamic", options_service)
 
 
 @pytest.fixture
 def solver_options():
-    custom_function_service = MagicMock()
+    options_service = MagicMock()
     opts = {
         "compiler": {"c_compiler": "gcc"},
         "runtime": {"log_level": 3},
@@ -1202,11 +1200,9 @@ def solver_options():
         "simulation": {"ncp": 500},
         "solver": {"rtol": 1e-5},
     }
-    custom_function_service.custom_function_options_get.return_value = opts
-    custom_function_service.custom_function_default_options_get.return_value = def_opts
-    return SolverOptions(
-        'workspace_1', opts["solver"], "dynamic", custom_function_service
-    )
+    options_service.custom_function_options_get.return_value = opts
+    options_service.default_options_get.return_value = def_opts
+    return SolverOptions(opts["solver"], "dynamic", options_service)
 
 
 @pytest.fixture

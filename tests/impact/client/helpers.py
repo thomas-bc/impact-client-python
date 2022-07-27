@@ -19,6 +19,7 @@ def create_workspace_entity(
     model_exe_service=None,
     experiment_service=None,
     custom_function_service=None,
+    options_service=None,
 ):
     return Workspace(
         name,
@@ -26,6 +27,7 @@ def create_workspace_entity(
         model_exe_service or MagicMock(),
         experiment_service or MagicMock(),
         custom_function_service or MagicMock(),
+        options_service or MagicMock(),
     )
 
 
@@ -101,10 +103,18 @@ def create_external_result_entity(result_id, workspace_service=None):
 
 
 def create_custom_function_entity(
-    workspace_id, name, parameter_data=None, custom_function_service=None
+    workspace_id,
+    name,
+    parameter_data=None,
+    custom_function_service=None,
+    options_service=None,
 ):
     return CustomFunction(
-        workspace_id, name, parameter_data, custom_function_service or MagicMock()
+        workspace_id,
+        name,
+        parameter_data,
+        custom_function_service or MagicMock(),
+        options_service or MagicMock(),
     )
 
 
