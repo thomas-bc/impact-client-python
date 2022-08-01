@@ -1,6 +1,9 @@
+from dataclasses import dataclass
+from pathlib import Path
 import logging
 import os
 from typing import Any, List, Dict, Optional, Union
+from modelon.impact.client.sal.project import ProjectService
 from modelon.impact.client.sal.workspace import WorkspaceService
 from modelon.impact.client.sal.model_executable import ModelExecutableService
 from modelon.impact.client.sal.experiment import ExperimentService
@@ -17,6 +20,7 @@ from modelon.impact.client.operations.external_result import (
 from modelon.impact.client.entities.model import Model
 from modelon.impact.client.entities.model_executable import ModelExecutable
 from modelon.impact.client.entities.experiment import Experiment
+from modelon.impact.client.entities.project import Project, ProjectDefinition
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +28,55 @@ logger = logging.getLogger(__name__)
 ExperimentDefinition = Union[
     SimpleModelicaExperimentDefinition, SimpleFMUExperimentDefinition, Dict[str, Any],
 ]
+DEFAULT_PROJECT_NAME = 'NewProject'
+
+
+@dataclass
+class ProjectEntry:
+    id: str
+    disabled: bool
+    disabled_content: List[str]
+
+    @classmethod
+    def from_dict(cls, data):
+        reference = data.get('reference')
+        return cls(
+            id=reference.get('id'),
+            disabled=data.get('disabled'),
+            disabled_content=data.get('disabledContent'),
+        )
+
+
+@dataclass
+class WorkspaceDefinition:
+    name: str
+    format: str
+    description: str
+    created_by: str
+    created_at: int
+
+    default_project_id: str
+
+    projects: List[ProjectEntry]
+
+    dependencies: List[ProjectEntry]
+
+    @classmethod
+    def from_dict(cls, data):
+        projects = data.get('projects', [])
+        dependencies = data.get('dependencies', [])
+        return cls(
+            name=data.get('name'),
+            format=data.get('format'),
+            description=data.get('description'),
+            created_by=data.get('createdBy'),
+            created_at=data.get('createdAt'),
+            default_project_id=data.get('defaultProjectId'),
+            projects=[ProjectEntry.from_dict(project) for project in projects],
+            dependencies=[
+                ProjectEntry.from_dict(dependency) for dependency in dependencies
+            ],
+        )
 
 
 class Workspace:
@@ -34,22 +87,30 @@ class Workspace:
     def __init__(
         self,
         workspace_id: str,
+        workspace_definition: WorkspaceDefinition,
         workspace_service: WorkspaceService,
         model_exe_service: ModelExecutableService,
         experiment_service: ExperimentService,
         custom_function_service: CustomFunctionService,
+        project_service: ProjectService,
     ):
         self._workspace_id = workspace_id
+        self._workspace_definition = workspace_definition
         self._workspace_sal = workspace_service
         self._model_exe_sal = model_exe_service
         self._exp_sal = experiment_service
         self._custom_func_sal = custom_function_service
+        self._project_sal = project_service
 
     def __repr__(self):
         return f"Workspace with id '{self._workspace_id}'"
 
     def __eq__(self, obj):
-        return isinstance(obj, Workspace) and obj._workspace_id == self._workspace_id
+        return (
+            isinstance(obj, Workspace)
+            and obj._workspace_id == self._workspace_id
+            and obj._workspace_definition == self._workspace_definition
+        )
 
     @property
     def id(self) -> str:
@@ -132,6 +193,26 @@ class Workspace:
             workspace.upload_model_library('C:/A.mo')
             workspace.upload_model_library('C:/B.mol')
         """
+        logger.warning(
+            "The 'upload_model_library' is deprecated and will be removed in a future"
+            " release. Use 'upload_dependency' method instead!"
+        )
+        self._workspace_sal.library_import(self._workspace_id, path_to_lib)
+
+    def upload_dependency(self, path_to_lib: str):
+        """Uploads a encrypted modelica library as a dependency to the workspace.
+
+        Parameters:
+
+            path_to_lib --
+                The path for the library to be imported.
+
+        Example::
+
+            workspace.upload_model_library('C:/B.mol')
+        """
+        if Path(path_to_lib).suffix.lower() in ['.mo', 'zip']:
+            raise ValueError("Only '.mol' files are supported for upload.")
         self._workspace_sal.library_import(self._workspace_id, path_to_lib)
 
     def upload_result(
@@ -305,27 +386,30 @@ class Workspace:
             f.write(data)
         return ws_path
 
-    def clone(self) -> 'Workspace':
-        """Clones the workspace.
-        Returns a clone Workspace class object.
+    # TODO: Cloning workspace is not implemented on feature branch
+    # def clone(self) -> 'Workspace':
+    #     """Clones the workspace.
+    #     Returns a clone Workspace class object.
 
-        Returns:
+    #     Returns:
 
-            workspace_clone --
-                Clones workspace class object.
+    #         workspace_clone --
+    #             Clones workspace class object.
 
-        Example::
+    #     Example::
 
-            workspace.clone()
-        """
-        resp = self._workspace_sal.workspace_clone(self._workspace_id)
-        return Workspace(
-            resp["workspace_id"],
-            self._workspace_sal,
-            self._model_exe_sal,
-            self._exp_sal,
-            self._custom_func_sal,
-        )
+    #         workspace.clone()
+    #     """
+    #     resp = self._workspace_sal.workspace_clone(self._workspace_id)
+    #     return Workspace(
+    #         resp["workspace_id"],
+    #         WorkspaceDefinition.from_dict(resp["definition"]),
+    #         self._workspace_sal,
+    #         self._model_exe_sal,
+    #         self._exp_sal,
+    #         self._custom_func_sal,
+    #         self._project_sal,
+    #     )
 
     def get_model(self, class_name: str) -> Model:
         """
@@ -545,3 +629,117 @@ class Workspace:
             self._model_exe_sal,
             self._exp_sal,
         )
+
+    def _refresh(self):
+        self._workspace_definition = WorkspaceDefinition.from_dict(
+            self._workspace_sal.workspace_get(self._workspace_id)['definition']
+        )
+
+    def get_projects(self):
+        """Return the list of projects for a workspace.
+
+        Returns:
+
+            projects --
+                A list of modelon.impact.client.entities.project.Project
+                class object.
+
+        Example::
+
+            projects = workspace.get_projects()
+        """
+        resp = self._workspace_sal.projects_get(self._workspace_id)
+        projects = [
+            Project(
+                item["id"],
+                ProjectDefinition.from_dict(item['definition']),
+                self._project_sal,
+            )
+            for item in resp["data"]["items"]
+        ]
+        return projects
+
+    def get_dependencies(self, include_disabled: bool = True):
+        """Return the list of project dependencies for a workspace.
+
+        Returns:
+
+            dependencies --
+                A list of modelon.impact.client.entities.project.Project
+                class object.
+
+        Example::
+
+            dependencies = workspace.get_dependencies()
+        """
+        resp = self._workspace_sal.dependencies_get(self._workspace_id)
+        self._refresh()
+        dependencies = [
+            Project(
+                item["id"],
+                ProjectDefinition.from_dict(item['definition']),
+                self._project_sal,
+            )
+            for item in resp["data"]["items"]
+        ]
+        if not include_disabled:
+            disabled_dependency_ids = [
+                dependency.id
+                for dependency in self._workspace_definition.dependencies
+                if dependency.disabled
+            ]
+            return [
+                dependency
+                for dependency in dependencies
+                if dependency.id not in disabled_dependency_ids
+            ]
+        return dependencies
+
+    def create_project(self, name: str):
+        """Creates a new project in the workspace.
+
+        Returns:
+
+            project --
+                An modelon.impact.client.entities.project.Project
+                class object.
+
+        Example::
+
+            project = workspace.create_project("test")
+        """
+        resp = self._workspace_sal.project_create(self._workspace_id, name)
+        return Project(
+            resp["id"],
+            ProjectDefinition.from_dict(resp['definition']),
+            self._project_sal,
+        )
+
+    def get_default_project(self):
+        """Return the default project for a workspace.
+
+        Returns:
+
+            project --
+                An modelon.impact.client.entities.project.Project
+                class object.
+
+        Example::
+
+            project = workspace.get_default_project()
+        """
+        self._refresh()
+        projects = self.get_projects()
+        project = [
+            project
+            for project in projects
+            if project.id == self._workspace_definition.default_project_id
+        ]
+        if not project:
+            logger.info(
+                f'No default project exists for the workspace {self._workspace_id}!'
+                'Creating a new project and setting it as default project.'
+            )
+            return self.create_project(DEFAULT_PROJECT_NAME)
+
+        return project[0]
