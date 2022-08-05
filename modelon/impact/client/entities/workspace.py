@@ -1,8 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
 import logging
 import os
-import tempfile
 import json
 from typing import Any, List, Dict, Optional, Union
 from modelon.impact.client.sal.project import ProjectService
@@ -22,7 +21,7 @@ from modelon.impact.client.operations.external_result import (
 from modelon.impact.client.entities.model import Model
 from modelon.impact.client.entities.model_executable import ModelExecutable
 from modelon.impact.client.entities.experiment import Experiment
-from modelon.impact.client.entities.project import Project, ProjectDefinition
+from modelon.impact.client.entities.project import Project, ProjectDefinition, VcsUri
 
 
 logger = logging.getLogger(__name__)
@@ -34,18 +33,54 @@ DEFAULT_PROJECT_NAME = 'NewProject'
 
 
 @dataclass
-class ProjectEntry:
+class FilePathReference:
     id: str
+
+
+@dataclass
+class ReleasedProjectReference:
+    id: str
+    name: str
+    version: Optional[str] = None
+    build: Optional[str] = None
+
+
+@dataclass
+class VcsReference:
+    id: str
+    vcsUri: str
+
+
+ProjectEntryReference = Union[FilePathReference, ReleasedProjectReference, VcsReference]
+
+
+def _get_project_entry_reference(reference):
+    if "name" in reference:
+        return ReleasedProjectReference(
+            id=reference.get('id'),
+            name=reference.get('name'),
+            version=reference.get('version'),
+            build=reference.get('build'),
+        )
+    elif "vcsUri" in reference:
+        return VcsReference(id=reference.get('id'), vcsUri=reference.get('vcsUri'),)
+    else:
+        return FilePathReference(id=reference.get('id'))
+
+
+@dataclass
+class ProjectEntry:
+    reference: ProjectEntryReference
     disabled: bool
-    disabled_content: List[str]
+    disabledContent: List[str]
 
     @classmethod
     def from_dict(cls, data):
         reference = data.get('reference')
         return cls(
-            id=reference.get('id'),
+            reference=_get_project_entry_reference(reference),
             disabled=data.get('disabled'),
-            disabled_content=data.get('disabledContent'),
+            disabledContent=data.get('disabledContent'),
         )
 
 
@@ -54,10 +89,10 @@ class WorkspaceDefinition:
     name: str
     format: str
     description: str
-    created_by: str
-    created_at: int
+    createdBy: str
+    createdAt: int
 
-    default_project_id: str
+    defaultProjectId: str
 
     projects: List[ProjectEntry]
 
@@ -65,56 +100,37 @@ class WorkspaceDefinition:
 
     @classmethod
     def from_dict(cls, data):
+        data = data.get('definition')
         projects = data.get('projects', [])
         dependencies = data.get('dependencies', [])
         return cls(
             name=data.get('name'),
             format=data.get('format'),
             description=data.get('description'),
-            created_by=data.get('createdBy'),
-            created_at=data.get('createdAt'),
-            default_project_id=data.get('defaultProjectId'),
+            createdBy=data.get('createdBy'),
+            createdAt=data.get('createdAt'),
+            defaultProjectId=data.get('defaultProjectId'),
             projects=[ProjectEntry.from_dict(project) for project in projects],
             dependencies=[
                 ProjectEntry.from_dict(dependency) for dependency in dependencies
             ],
         )
 
-
-class WorkspaceDefinition:
-    def __init__(self, data: Dict[str, Any]):
-        self.data = data
-
     def to_dict(self) -> Dict[str, Any]:
-        return self.data
+        return {'definition': asdict(self)}
 
-    def to_file(self, path: Optional[str] = None) -> str:
-        if path is None:
-            path = os.path.join(tempfile.gettempdir(), "impact-downloads")
+    def to_file(self, path: str) -> str:
         os.makedirs(path, exist_ok=True)
-        definition_path = os.path.join(path, self.data['definition']['name'] + ".json")
+        definition_path = os.path.join(path, self.name + ".json")
         with open(definition_path, "w", encoding='utf-8') as f:
-            json.dump(self.data, f, indent=4)
+            json.dump(self.to_dict(), f, indent=4)
         return definition_path
-
-    def with_selected_matchings(self, entries):
-        selected_matchings = {"selectedMatchings": {"entries": entries}}
-        return WorkspaceDefinition({**self.data, **selected_matchings})
 
     @classmethod
     def from_file(cls, path: str):
         with open(path) as json_file:
             data = json.load(json_file)
-        return cls(data)
-
-    def get_vcs_uri_from_reference_id(self, reference_id: str):
-        projects = (
-            self.data["definition"]["projects"]
-            + self.data["definition"]["dependencies"]
-        )
-        for project in projects:
-            if project["reference"]["id"] == reference_id:
-                return project["reference"]["vcsUri"]
+        return cls.from_dict(data)
 
 
 class Workspace:
@@ -670,7 +686,16 @@ class Workspace:
 
     def _refresh(self):
         self._workspace_definition = WorkspaceDefinition.from_dict(
-            self._workspace_sal.workspace_get(self._workspace_id)['definition']
+            self._workspace_sal.workspace_get(self._workspace_id)
+        )
+
+    def _create_project_entity_from_dict(self, data):
+        return Project(
+            data["id"],
+            ProjectDefinition.from_dict(data),
+            data["projectType"],
+            VcsUri.from_dict(data["vcsUri"]) if data.get("vcsUri") else None,
+            self._project_sal,
         )
 
     def get_projects(self):
@@ -688,11 +713,7 @@ class Workspace:
         """
         resp = self._workspace_sal.projects_get(self._workspace_id)
         projects = [
-            Project(
-                item["id"],
-                ProjectDefinition.from_dict(item['definition']),
-                self._project_sal,
-            )
+            self._create_project_entity_from_dict(item)
             for item in resp["data"]["items"]
         ]
         return projects
@@ -713,16 +734,12 @@ class Workspace:
         resp = self._workspace_sal.dependencies_get(self._workspace_id)
         self._refresh()
         dependencies = [
-            Project(
-                item["id"],
-                ProjectDefinition.from_dict(item['definition']),
-                self._project_sal,
-            )
+            self._create_project_entity_from_dict(item)
             for item in resp["data"]["items"]
         ]
         if not include_disabled:
             disabled_dependency_ids = [
-                dependency.id
+                dependency.reference.id
                 for dependency in self._workspace_definition.dependencies
                 if dependency.disabled
             ]
@@ -747,11 +764,7 @@ class Workspace:
             project = workspace.create_project("test")
         """
         resp = self._workspace_sal.project_create(self._workspace_id, name)
-        return Project(
-            resp["id"],
-            ProjectDefinition.from_dict(resp['definition']),
-            self._project_sal,
-        )
+        return self._create_project_entity_from_dict(resp)
 
     def get_default_project(self):
         """Return the default project for a workspace.
@@ -771,7 +784,7 @@ class Workspace:
         project = [
             project
             for project in projects
-            if project.id == self._workspace_definition.default_project_id
+            if project.id == self._workspace_definition.defaultProjectId
         ]
         if not project:
             logger.info(
@@ -783,6 +796,6 @@ class Workspace:
         return project[0]
 
     def get_shared_definition(self, strict: bool = False):
-        return WorkspaceDefinition(
+        return WorkspaceDefinition.from_dict(
             self._workspace_sal.shared_definition_get(self._workspace_id, strict=strict)
         )

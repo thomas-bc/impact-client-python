@@ -6,7 +6,6 @@ from typing import Optional
 from modelon.impact.client.sal import exceptions
 from modelon.impact.client.sal.http import HTTPClient
 from modelon.impact.client.sal.workspace import WorkspaceService
-from modelon.impact.client.sal.project import ProjectService
 from modelon.impact.client.sal.custom_function import CustomFunctionService
 from modelon.impact.client.sal.model_executable import ModelExecutableService
 from modelon.impact.client.sal.experiment import ExperimentService

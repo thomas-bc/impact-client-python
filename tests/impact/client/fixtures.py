@@ -25,39 +25,41 @@ ExperimentMock = collections.namedtuple('ExperimentMock', ['entity', 'service'])
 WorkspaceMock = collections.namedtuple('WorkspaceMock', ['entity', 'service'])
 ProjectMock = collections.namedtuple('ProjectMock', ['entity', 'service'])
 TEST_WORKSPACE_DEFINITION = {
-    "name": "newWorkspace",
-    "format": "1.0",
-    "description": "",
-    "createdBy": "local-installation-user-id",
-    "createdAt": 1659072911361,
-    "defaultProjectId": "bf1e2f2a2fd55dcfd844bc1f252528f707254425",
-    "projects": [
-        {
-            "reference": {"id": "bf1e2f2a2fd55dcfd844bc1f252528f707254425"},
-            "disabled": False,
-            "disabledContent": [],
-        }
-    ],
-    "dependencies": [
-        {
-            "reference": {
-                "id": "84fb1c37abe6ed97a53972fb7239630e1212438b",
-                "name": "MSL",
-                "version": "3.2.3",
+    "definition": {
+        "name": "newWorkspace",
+        "format": "1.0",
+        "description": "",
+        "createdBy": "local-installation-user-id",
+        "createdAt": 1659072911361,
+        "defaultProjectId": "bf1e2f2a2fd55dcfd844bc1f252528f707254425",
+        "projects": [
+            {
+                "reference": {"id": "bf1e2f2a2fd55dcfd844bc1f252528f707254425"},
+                "disabled": False,
+                "disabledContent": [],
+            }
+        ],
+        "dependencies": [
+            {
+                "reference": {
+                    "id": "84fb1c37abe6ed97a53972fb7239630e1212438b",
+                    "name": "MSL",
+                    "version": "3.2.3",
+                },
+                "disabled": True,
+                "disabledContent": [],
             },
-            "disabled": True,
-            "disabledContent": [],
-        },
-        {
-            "reference": {
-                "id": "cdbde8922bd2c48c392b1b4bb740adc0273c737c",
-                "name": "MSL",
-                "version": "4.0.0",
+            {
+                "reference": {
+                    "id": "cdbde8922bd2c48c392b1b4bb740adc0273c737c",
+                    "name": "MSL",
+                    "version": "4.0.0",
+                },
+                "disabled": False,
+                "disabledContent": [],
             },
-            "disabled": False,
-            "disabledContent": [],
-        },
-    ],
+        ],
+    }
 }
 
 
@@ -288,8 +290,8 @@ def jupyterhub_api(mock_server_base):
 @pytest.fixture
 def create_workspace(user_with_license):
     json = {
-        "definition": TEST_WORKSPACE_DEFINITION,
         "id": "newWorkspace",
+        **TEST_WORKSPACE_DEFINITION,
     }
     return with_json_route(user_with_license, 'POST', 'api/workspaces', json)
 
@@ -337,7 +339,7 @@ def delete_workspace(user_with_license):
 
 @pytest.fixture
 def single_workspace(user_with_license):
-    json = {"definition": TEST_WORKSPACE_DEFINITION, "id": "AwesomeWorkspace"}
+    json = {**TEST_WORKSPACE_DEFINITION, "id": "AwesomeWorkspace"}
     return with_json_route(
         user_with_license, 'GET', 'api/workspaces/AwesomeWorkspace', json
     )
@@ -346,14 +348,14 @@ def single_workspace(user_with_license):
 @pytest.fixture
 def multiple_workspace(user_with_license):
     workspace_1_def = TEST_WORKSPACE_DEFINITION.copy()
-    workspace_1_def["name"] = 'workspace_1'
+    workspace_1_def["definition"]["name"] = 'workspace_1'
     workspace_2_def = TEST_WORKSPACE_DEFINITION.copy()
-    workspace_2_def["name"] = 'workspace_2'
+    workspace_2_def["definition"]["name"] = 'workspace_2'
     json = {
         'data': {
             'items': [
-                {'id': 'workspace_1', "definition": workspace_1_def},
-                {'id': 'workspace_2', "definition": workspace_2_def},
+                {'id': 'workspace_1', **workspace_1_def},
+                {'id': 'workspace_2', **workspace_2_def},
             ]
         }
     }
@@ -1944,5 +1946,279 @@ def upload_project_content(sem_ver_check, mock_server_base):
         mock_server_base,
         'POST',
         'api/projects/f727f04210b94a0fac81f17f83b869e6/content',
+        json,
+    )
+
+
+@pytest.fixture
+def shared_definition_get(user_with_license, mock_server_base):
+    json = {
+        "definition": {
+            "name": "test",
+            "projects": [
+                {
+                    "reference": {
+                        "id": "6a566aafc4927602dcc8c1da817271276b9e7001",
+                        "vcsUri": "git+https://github.com/tj/git-extras.git@master:cd8fe4f6e2bff02f88fc1baeb7260c83160ee927",
+                    },
+                    "disabled": True,
+                    "disabledContent": [],
+                }
+            ],
+            "dependencies": [],
+        }
+    }
+
+    return with_json_route(
+        mock_server_base,
+        'GET',
+        'api/workspaces/WS/sharing-definition?strict=true',
+        json,
+    )
+
+
+@pytest.fixture
+def get_workspace_upload_status(user_with_license, mock_server_base):
+    json = {
+        "data": {
+            'id': 'efa5cc60e3d04049ad0566bc53b431f8',
+            'status': 'ready',
+            'data': {'resourceUri': 'api/workspaces/test', 'workspaceId': 'test'},
+        }
+    }
+
+    return with_json_route(
+        mock_server_base,
+        'GET',
+        'api/workspace-imports/05c7c0c45a084f079682eaf443287901',
+        json,
+    )
+
+
+@pytest.fixture
+def get_successful_workspace_upload_status(user_with_license, mock_server_base):
+    json = {
+        "data": {
+            "id": "05c7c0c45a084f079682eaf443287901",
+            "status": "ready",
+            "data": {
+                'resourceUri': f'api/workspaces/123456780',
+                'workspaceId': "123456780",
+            },
+        }
+    }
+
+    return with_json_route(
+        mock_server_base,
+        'GET',
+        'api/workspace-imports/05c7c0c45a084f079682eaf443287901',
+        json,
+    )
+
+
+@pytest.fixture
+def get_failed_workspace_upload_status(user_with_license, mock_server_base):
+    json = {
+        "data": {
+            "id": "05c7c0c45a084f079682eaf443287901",
+            "status": "error",
+            "error": {
+                "message": "Could not import workspace 'test'. Multiple existing projects matches the URI git+https://github.com/modelon/impact-http.git@main:da6abb188a089527df1b54b27ace84274b819e4a and no selected matching was given",
+                "code": 12102,
+            },
+        }
+    }
+
+    return with_json_route(
+        mock_server_base,
+        'GET',
+        'api/workspace-imports/05c7c0c45a084f079682eaf443287901',
+        json,
+    )
+
+
+@pytest.fixture
+def import_from_shared_definition(user_with_license, mock_server_base):
+    json = {
+        "data": {"location": "api/workspace-imports/05c7c0c45a084f079682eaf443287901"}
+    }
+
+    return with_json_route(mock_server_base, 'POST', 'api/workspace-imports', json)
+
+
+@pytest.fixture
+def get_project_matchings(user_with_license, mock_server_base):
+    json = {
+        "data": {
+            "vcs": [
+                {
+                    "entryId": "c1f1d74f0b612c6b67e4165bf9a1ad30b2630039",
+                    "uri": {
+                        "serviceKind": "git",
+                        "serviceUrl": "https://github.com",
+                        "repoUrl": {
+                            "url": "github.com/modelon/impact-http.git",
+                            "refname": "main",
+                            "sha1": "da6abb188a089527df1b54b27ace84274b819e4a",
+                        },
+                        "protocol": "https",
+                        "subdir": ".",
+                    },
+                    "projects": [
+                        {"id": "1e2a2a37efaad57c1b59519c9aca6aa4d5417494"},
+                        {"id": "da282cc77feaa60fc93879a7f39e27ab78304940"},
+                    ],
+                },
+            ]
+        }
+    }
+
+    return with_json_route(
+        mock_server_base, 'POST', 'api/workspace-imports-matchings', json
+    )
+
+
+@pytest.fixture
+def get_versioned_projects(user_with_license, mock_server_base):
+    json = {
+        "data": {
+            "items": [
+                {
+                    "id": "1e2a2a37efaad57c1b59519c9aca6aa4d5417494",
+                    "definition": {
+                        "name": "NewProjectTrunk",
+                        "format": "1.0",
+                        "content": [
+                            {
+                                "id": "53ef47c157ff48378cd99b6f21817c26",
+                                "relpath": "MyPackage",
+                                "contentType": "MODELICA",
+                                "name": "MyPackage",
+                                "defaultDisabled": False,
+                            }
+                        ],
+                    },
+                    "projectType": "LOCAL",
+                    "vcsUri": {
+                        "serviceKind": "git",
+                        "serviceUrl": "https://github.com",
+                        "repoUrl": {
+                            "url": "github.com/tj/git-extras.git",
+                            "refname": "master",
+                            "sha1": "cd8fe4f6e2bff02f88fc1baeb7260c83160ee927",
+                        },
+                        "protocol": "https",
+                        "subdir": ".",
+                    },
+                },
+                {
+                    "id": "da282cc77feaa60fc93879a7f39e27ab78304940",
+                    "definition": {
+                        "name": "NewProjectBranch",
+                        "format": "1.0",
+                        "content": [
+                            {
+                                "id": "483b741ad07941f6b8b2c0281cd12fef",
+                                "relpath": "MyPackage",
+                                "contentType": "MODELICA",
+                                "name": "MyPackage",
+                                "defaultDisabled": False,
+                            }
+                        ],
+                    },
+                    "projectType": "LOCAL",
+                    "vcsUri": {
+                        "serviceKind": "git",
+                        "serviceUrl": "https://github.com",
+                        "repoUrl": {
+                            "url": "github.com/tj/git-extras.git",
+                            "refname": "master",
+                            "sha1": "cd8fe4f6e2bff02f88fc1baeb7260c83160ee927",
+                        },
+                        "protocol": "https",
+                        "subdir": ".",
+                    },
+                },
+            ]
+        }
+    }
+
+    return with_json_route(mock_server_base, 'GET', 'api/projects?vcsInfo=true', json)
+
+
+@pytest.fixture
+def get_versioned_new_project_trunk(user_with_license, mock_server_base):
+    json = {
+        "id": "1e2a2a37efaad57c1b59519c9aca6aa4d5417494",
+        "definition": {
+            "name": "NewProjectTrunk",
+            "format": "1.0",
+            "content": [
+                {
+                    "id": "53ef47c157ff48378cd99b6f21817c26",
+                    "relpath": "MyPackage",
+                    "contentType": "MODELICA",
+                    "name": "MyPackage",
+                    "defaultDisabled": False,
+                }
+            ],
+        },
+        "projectType": "LOCAL",
+        "vcsUri": {
+            "serviceKind": "git",
+            "serviceUrl": "https://github.com",
+            "repoUrl": {
+                "url": "github.com/tj/git-extras.git",
+                "refname": "master",
+                "sha1": "cd8fe4f6e2bff02f88fc1baeb7260c83160ee927",
+            },
+            "protocol": "https",
+            "subdir": ".",
+        },
+    }
+
+    return with_json_route(
+        mock_server_base,
+        'GET',
+        'api/projects/1e2a2a37efaad57c1b59519c9aca6aa4d5417494?vcsInfo=true',
+        json,
+    )
+
+
+@pytest.fixture
+def get_versioned_new_project_branch(user_with_license, mock_server_base):
+    json = {
+        "id": "da282cc77feaa60fc93879a7f39e27ab78304940",
+        "definition": {
+            "name": "NewProjectBranch",
+            "format": "1.0",
+            "content": [
+                {
+                    "id": "483b741ad07941f6b8b2c0281cd12fef",
+                    "relpath": "MyPackage",
+                    "contentType": "MODELICA",
+                    "name": "MyPackage",
+                    "defaultDisabled": False,
+                }
+            ],
+        },
+        "projectType": "LOCAL",
+        "vcsUri": {
+            "serviceKind": "git",
+            "serviceUrl": "https://github.com",
+            "repoUrl": {
+                "url": "github.com/tj/git-extras.git",
+                "refname": "master",
+                "sha1": "cd8fe4f6e2bff02f88fc1baeb7260c83160ee927",
+            },
+            "protocol": "https",
+            "subdir": ".",
+        },
+    }
+
+    return with_json_route(
+        mock_server_base,
+        'GET',
+        'api/projects/da282cc77feaa60fc93879a7f39e27ab78304940?vcsInfo=true',
         json,
     )

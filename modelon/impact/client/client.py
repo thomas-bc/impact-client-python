@@ -1,11 +1,15 @@
 """This module provides an entry-point to the client APIs."""
 import logging
-from typing import Dict, List, Any
-from dataclasses import dataclass, asdict
+from typing import List, Optional
+from dataclasses import dataclass
 from semantic_version import SimpleSpec, Version  # type: ignore
 import modelon.impact.client.configuration
-import modelon.impact.client.entities.project
-from modelon.impact.client.entities.workspace import WorkspaceDefinition, Workspace
+from modelon.impact.client.entities.project import Project, ProjectDefinition, VcsUri
+from modelon.impact.client.entities.workspace import (
+    WorkspaceDefinition,
+    Workspace,
+    VcsReference,
+)
 import modelon.impact.client.exceptions
 import modelon.impact.client.sal.service
 import modelon.impact.client.sal.exceptions
@@ -24,52 +28,85 @@ def _workspace_def_from_dict(data):
 
 
 def _project_def_from_dict(data):
-    return modelon.impact.client.entities.project.ProjectDefinition.from_dict(data)
+    return ProjectDefinition.from_dict(data)
+
+
+def _get_vcs_uri_from_reference_id(
+    shared_definition: WorkspaceDefinition, reference_id: str
+):
+    projects = shared_definition.projects + shared_definition.dependencies
+    for project in projects:
+        if (
+            isinstance(project.reference, VcsReference)
+            and project.reference.id == reference_id
+        ):
+            return project.reference.vcsUri
+    raise ValueError(
+        f"The {reference_id} doesn't exist in workspace projects or dependencies!"
+    )
 
 
 @dataclass
-class VCSProjectMeta:
-    project_id: int
-    project_name: List[str]
+class Selection:
+    entry_id: str
+    project: Project
+
+    def to_dict(self):
+        return {'id': self.entry_id, 'project': {'id': self.project.id}}
 
 
 @dataclass
-class VCSMatching:
-    entry_id: int
+class ProjectMatching:
+    entry_id: str
     vcs_uri: str
-    project_meta: List[VCSProjectMeta]
+    projects: List[Project]
 
-    def matches(self) -> Dict[str, Any]:
-        return {
-            "id": self.entry_id,
-            "uri": self.vcs_uri,
-            "projects": [asdict(project) for project in self.project_meta],
-        }
+    def get_selection(self, index: int) -> Selection:
+        return Selection(entry_id=self.entry_id, project=self.projects[index])
 
-    def interactive_resolve(self) -> List[Dict[str, Any]]:
+    def make_selection_interactive(self) -> Selection:
+        if len(self.projects) == 1:
+            print(f"Only one project matches the URI {self.vcs_uri}!")
+            chosen_project = self.projects[0]
+            project_def = chosen_project.definition
+            print(
+                f"Resolving conflict automatically using project with ID: "
+                f"{chosen_project.id} for repository with URI: {self.vcs_uri}."
+            )
+            return Selection(self.entry_id, chosen_project)
+
         print(f"Multiple existing projects match the URI {self.vcs_uri}!")
         hash_map = {}
-        for i, project in enumerate(self.project_meta):
-            hash_map[i + 1] = project.project_id
-            print(f"{i+1}. {project.project_name}")
+        for i, project in enumerate(self.projects):
+            hash_map[i + 1] = project
+            project_def = project.definition
+            print(f"{i+1}. {project_def.name} {project.vcs_uri}")
         try:
-            chosen_project_id = hash_map[
+            chosen_project = hash_map[
                 int(input('Please enter one of the above choices:-'))
             ]
-        except (KeyError, ValueError):
+        except (KeyError, ValueError) as e:
             allowed_choices = map(str, range(len(hash_map)))
             raise ValueError(
                 f"Invalid choice. Please select one of {','.join(allowed_choices)}!"
-            )
+            ) from e
 
         print(
-            f"Resolving conflict using project with ID: {chosen_project_id}"
+            f"Resolving conflict using project with ID: {chosen_project.id}"
             f" for repository with URI: {self.vcs_uri}."
         )
-        return [{'id': self.entry_id, 'project': {'id': chosen_project_id}}]
+        return Selection(self.entry_id, chosen_project)
 
-    def resolve(self, selected_project_id: str) -> List[Dict[str, Any]]:
-        return [{'id': self.entry_id, 'project': {'id': selected_project_id}}]
+
+@dataclass
+class ProjectMatchings:
+    entries: List[ProjectMatching]
+
+    def make_selections_interactive(self) -> List[Selection]:
+        selections = []
+        for entry in self.entries:
+            selections.append(entry.make_selection_interactive())
+        return selections
 
 
 class Client:
@@ -225,7 +262,7 @@ class Client:
         resp = self._sal.workspace.workspace_get(workspace_id)
         return Workspace(
             resp["id"],
-            _workspace_def_from_dict(resp["definition"]),
+            _workspace_def_from_dict(resp),
             self._sal.workspace,
             self._sal.model_executable,
             self._sal.experiment,
@@ -250,7 +287,7 @@ class Client:
         return [
             Workspace(
                 item["id"],
-                _workspace_def_from_dict(item["definition"]),
+                _workspace_def_from_dict(item),
                 self._sal.workspace,
                 self._sal.model_executable,
                 self._sal.experiment,
@@ -275,9 +312,11 @@ class Client:
         """
         resp = self._sal.project.projects_get()
         return [
-            modelon.impact.client.entities.project.Project(
+            Project(
                 item["id"],
-                _project_def_from_dict(item["definition"]),
+                _project_def_from_dict(item),
+                item["projectType"],
+                VcsUri.from_dict(item["vcsUri"]) if item.get("vcsUri") else None,
                 self._sal.project,
             )
             for item in resp["data"]["items"]
@@ -304,7 +343,7 @@ class Client:
         resp = self._sal.workspace.workspace_create(workspace_id)
         return Workspace(
             resp["id"],
-            _workspace_def_from_dict(resp["definition"]),
+            _workspace_def_from_dict(resp),
             self._sal.workspace,
             self._sal.model_executable,
             self._sal.experiment,
@@ -333,7 +372,7 @@ class Client:
         resp = self._sal.workspace.workspace_upload(path_to_workspace)
         return Workspace(
             resp["id"],
-            _workspace_def_from_dict(resp["definition"]),
+            _workspace_def_from_dict(resp),
             self._sal.workspace,
             self._sal.model_executable,
             self._sal.experiment,
@@ -341,73 +380,57 @@ class Client:
             self._sal.project,
         )
 
-    def get_projects(self, vcs_info: bool = True):
-        # TODO: Return a list of project entities
-        return self._sal.project.projects_get(vcs_info=vcs_info)
-
-    def _get_versioned_project_meta_from_ids(
+    def _get_versioned_projects_from_ids(
         self, vcs_project_ids: List[str]
-    ) -> List[VCSProjectMeta]:
-        projects = self.get_projects(vcs_info=True)["data"]["items"]
-        return [
-            VCSProjectMeta(project['id'], project['definition']['name'])
-            for project in projects
-            if project['id'] in vcs_project_ids
-        ]
+    ) -> List[Project]:
+        projects = self.get_projects()
+        return [project for project in projects if project.id in vcs_project_ids]
 
-    def _get_resolved_vcs_matchings(self, shared_definition: WorkspaceDefinition):
-        matchings = self.get_vcs_matchings(
-            shared_definition, only_multiple_matches=True
-        )
-        entries = []
-        for matching in matchings:
-            entries += matching.interactive_resolve()
-        return entries
-
-    def _import_from_shared_definition(self, shared_definition: WorkspaceDefinition):
+    def _import_from_shared_definition(
+        self,
+        shared_definition: WorkspaceDefinition,
+        selections: Optional[List[Selection]] = None,
+    ):
         resp = self._sal.workspace.import_from_shared_definition(
-            shared_definition.to_dict()
+            shared_definition.to_dict(),
+            selected_matchings=[selection.to_dict() for selection in selections]
+            if selections
+            else None,
         )
-        operation = WorkspaceImportOperation(
+        return WorkspaceImportOperation(
             resp["data"]["location"],
+            shared_definition,
             self._sal.workspace,
             self._sal.model_executable,
             self._sal.experiment,
             self._sal.custom_function,
+            self._sal.project,
         )
-        return operation
 
     def import_from_shared_definition(
-        self, shared_definition: WorkspaceDefinition, interactive: bool = True,
+        self,
+        shared_definition: WorkspaceDefinition,
+        selections: Optional[List[Selection]] = None,
     ):
-        operation = self._import_from_shared_definition(shared_definition)
-        if interactive:
-            try:
-                return operation.wait()
-            except exceptions.IllegalWorkspaceImport as exe:
-                entries = self._get_resolved_vcs_matchings(shared_definition)
-                if entries:
-                    operation = self._import_from_shared_definition(
-                        shared_definition.with_selected_matchings(entries)
-                    )
-                    return operation.wait()
-                raise exe
-        return operation
+        operation = self._import_from_shared_definition(shared_definition, selections)
+        return operation.wait()
 
-    def get_vcs_matchings(
-        self, shared_definition: WorkspaceDefinition, only_multiple_matches: bool = True
-    ) -> List[VCSMatching]:
-        vcs_matchings = []
-        matchings = self._sal.workspace.get_vcs_matchings(shared_definition.to_dict())[
-            'data'
-        ]['vcs']
+    def get_project_matchings(
+        self, shared_definition: WorkspaceDefinition
+    ) -> ProjectMatchings:
+        project_matchings = []
+        matchings = self._sal.workspace.get_project_matchings(
+            shared_definition.to_dict()
+        )['data']['vcs']
         for entry in matchings:
-            projects = entry['projects']
-            if only_multiple_matches and len(projects) == 1:
-                continue
-            vcs_uri = shared_definition.get_vcs_uri_from_reference_id(entry["entryId"])
-            projects = self._get_versioned_project_meta_from_ids(
-                vcs_project_ids=[project['id'] for project in projects]
+            project_ids = [project['id'] for project in entry['projects']]
+            vcs_uri = _get_vcs_uri_from_reference_id(
+                shared_definition, entry["entryId"]
             )
-            vcs_matchings += [VCSMatching(entry["entryId"], vcs_uri, projects)]
-        return vcs_matchings
+            projects = self._get_versioned_projects_from_ids(
+                vcs_project_ids=project_ids
+            )
+            project_matchings.append(
+                ProjectMatching(entry["entryId"], vcs_uri, projects)
+            )
+        return ProjectMatchings(project_matchings)

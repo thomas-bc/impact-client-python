@@ -13,8 +13,8 @@ class TestWorkspaceService:
         )
         data = service.workspace.workspace_create('newWorkspace')
         assert data == {
-            'definition': TEST_WORKSPACE_DEFINITION,
             'id': 'newWorkspace',
+            **TEST_WORKSPACE_DEFINITION,
         }
 
     def test_delete_workspace(self, delete_workspace):
@@ -37,8 +37,8 @@ class TestWorkspaceService:
         )
         data = service.workspace.workspace_get('AwesomeWorkspace')
         assert data == {
-            "definition": TEST_WORKSPACE_DEFINITION,
             "id": "AwesomeWorkspace",
+            **TEST_WORKSPACE_DEFINITION,
         }
 
     def test_get_workspaces(self, multiple_workspace):
@@ -48,14 +48,14 @@ class TestWorkspaceService:
         )
         data = service.workspace.workspaces_get()
         workspace_1_def = TEST_WORKSPACE_DEFINITION.copy()
-        workspace_1_def["name"] = 'workspace_1'
+        workspace_1_def["definition"]["name"] = 'workspace_1'
         workspace_2_def = TEST_WORKSPACE_DEFINITION.copy()
-        workspace_2_def["name"] = 'workspace_2'
+        workspace_2_def["definition"]["name"] = 'workspace_2'
         assert data == {
             'data': {
                 'items': [
-                    {'id': 'workspace_1', 'definition': workspace_1_def},
-                    {'id': 'workspace_2', 'definition': workspace_2_def},
+                    {'id': 'workspace_1', **workspace_1_def},
+                    {'id': 'workspace_2', **workspace_2_def},
                 ]
             }
         }
@@ -292,6 +292,94 @@ class TestWorkspaceService:
                         "id": "84fb1c37abe6ed97a53972fb7239630e1212438b",
                         "definition": {},
                         "projectType": "SYSTEM",
+                    },
+                ]
+            }
+        }
+
+    def test_get_shared_definition(self, shared_definition_get):
+        uri = URI(shared_definition_get.url)
+        service = modelon.impact.client.sal.service.Service(
+            uri=uri, context=shared_definition_get.context
+        )
+        data = service.workspace.shared_definition_get("WS", True)
+        assert shared_definition_get.adapter.called
+        assert data == {
+            "definition": {
+                "name": "test",
+                "projects": [
+                    {
+                        "reference": {
+                            "id": "6a566aafc4927602dcc8c1da817271276b9e7001",
+                            "vcsUri": "git+https://github.com/tj/git-extras.git@master:cd8fe4f6e2bff02f88fc1baeb7260c83160ee927",
+                        },
+                        "disabled": True,
+                        "disabledContent": [],
+                    }
+                ],
+                "dependencies": [],
+            }
+        }
+
+    def test_get_workspace_upload_status(self, get_workspace_upload_status):
+        uri = URI(get_workspace_upload_status.url)
+        service = modelon.impact.client.sal.service.Service(
+            uri=uri, context=get_workspace_upload_status.context
+        )
+        data = service.workspace.get_workspace_upload_status(
+            "api/workspace-imports/05c7c0c45a084f079682eaf443287901"
+        )
+        assert get_workspace_upload_status.adapter.called
+        assert data == {
+            "data": {
+                'id': 'efa5cc60e3d04049ad0566bc53b431f8',
+                'status': 'ready',
+                'data': {'resourceUri': 'api/workspaces/test', 'workspaceId': 'test'},
+            }
+        }
+
+    def test_import_from_shared_definition(self, import_from_shared_definition):
+        uri = URI(import_from_shared_definition.url)
+        service = modelon.impact.client.sal.service.Service(
+            uri=uri, context=import_from_shared_definition.context
+        )
+        data = service.workspace.import_from_shared_definition(
+            {"definition": {"name": "test", "projects": []}}
+        )
+        assert data == {
+            "data": {
+                "location": "api/workspace-imports/05c7c0c45a084f079682eaf443287901"
+            }
+        }
+
+    def test_get_vcs_matchings(self, get_project_matchings):
+        uri = URI(get_project_matchings.url)
+        service = modelon.impact.client.sal.service.Service(
+            uri=uri, context=get_project_matchings.context
+        )
+        data = service.workspace.get_project_matchings(
+            {"definition": {"name": "test", "projects": []}}
+        )
+        assert data == {
+            "data": {
+                "vcs": [
+                    {
+                        "entryId": "c1f1d74f0b612c6b67e4165bf9a1ad30b2630039",
+                        "uri": {
+                            "serviceKind": "git",
+                            "serviceUrl": "https://github.com",
+                            "repoUrl": {
+                                "url": "github.com/modelon/impact-http.git",
+                                "refname": "main",
+                                "sha1": "da6abb188a089527df1b54b27ace84274b819e4a",
+                            },
+                            "protocol": "https",
+                            "subdir": ".",
+                        },
+                        "projects": [
+                            {"id": "1e2a2a37efaad57c1b59519c9aca6aa4d5417494"},
+                            {"id": "da282cc77feaa60fc93879a7f39e27ab78304940"},
+                        ],
                     },
                 ]
             }

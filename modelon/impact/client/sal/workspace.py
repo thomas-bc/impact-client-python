@@ -191,15 +191,23 @@ class WorkspaceService:
         ).resolve()
         return self._http_client.get_json(url)
 
-    def import_from_shared_definition(self, shared_definition: Dict[str, Any]):
+    def import_from_shared_definition(
+        self,
+        shared_definition: Dict[str, Any],
+        selected_matchings: Optional[List[Dict[str, Any]]] = None,
+    ):
+        if selected_matchings:
+            shared_definition = {
+                **shared_definition,
+                **{"selectedMatchings": {"entries": selected_matchings}},
+            }
         url = (self._base_uri / "api/workspace-imports").resolve()
-        resp = self._http_client.post_json(url, body=shared_definition)
-        return resp
+        return self._http_client.post_json(url, body=shared_definition)
 
     def get_workspace_upload_status(self, location: str):
         url = (self._base_uri / location).resolve()
         return self._http_client.get_json(url)
 
-    def get_vcs_matchings(self, shared_definition: Dict[str, Any]):
+    def get_project_matchings(self, shared_definition: Dict[str, Any]):
         url = (self._base_uri / "api/workspace-imports-matchings").resolve()
         return self._http_client.post_json(url, body=shared_definition)

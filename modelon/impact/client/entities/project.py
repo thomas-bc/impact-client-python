@@ -4,9 +4,11 @@
 import enum
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Union
 from modelon.impact.client.sal.project import ProjectService
 from modelon.impact.client.options import ExecutionOptions
+
+RepoURL = Union['GitRepoURL', 'SvnRepoURL']
 
 
 @enum.unique
@@ -19,6 +21,133 @@ class ContentType(enum.Enum):
     CUSTOM_FUNCTIONS = 'CUSTOM_FUNCTIONS'
     REFERENCE_RESULTS = 'REFERENCE_RESULTS'
     GENERIC = 'GENERIC'
+
+
+@enum.unique
+class ProjectType(enum.Enum):
+    """Type of project."""
+
+    LOCAL = 'LOCAL'
+    RELEASED = 'RELEASED'
+    SYSTEM = 'SYSTEM'
+
+
+@dataclass
+class GitRepoURL:
+    """GitRepoURL represents a project referenced in a git repo
+    String representation is url[@[refname][:sha1]]
+    """
+
+    url: str
+    """ URL without protocol part, e.g., gitlab.modelon.com/group/project/repo """
+
+    refname: str = ""
+    """ Reference name (branch, tag or similar) """
+
+    sha1: str = ""
+    """ Commit hash """
+
+    def __str__(self):
+        repo_url = self.url
+        if self.refname or self.sha1:
+            repo_url += '@'
+        if self.refname:
+            repo_url += self.refname
+        if self.sha1:
+            repo_url += ':' + self.sha1
+        return repo_url
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            url=data.get("url"), refname=data.get("refname"), sha1=data.get("sha1"),
+        )
+
+
+@dataclass
+class SvnRepoURL:
+    """SvnRepoURL represents a project referenced in a Subversion repo
+    String representation is url/trunk/subdir[@[rev]]
+    """
+
+    root_url: str
+    """ URL without protocol part up to branch part, e.g., svn.modelon.com/PNNN/ """
+
+    branch: str = ""
+    """ Non-empty if it's standard layout and can be either
+        trunk or branches/name or tags/name """
+
+    url_from_root: str = ""
+    """ URL segment after branch (could be saved in subdir as well) """
+
+    rev: str = ""
+    """ Revision number or empty (means HEAD) """
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SvnRepoURL):
+            return False
+        return (
+            self.get_rev() == other.get_rev()
+            and self.root_url == other.root_url
+            and self.branch == other.branch
+            and self.url_from_root == other.url_from_root
+        )
+
+    def get_rev(self) -> str:
+        rev = self.rev
+        if rev == "":
+            return 'HEAD'
+        return rev
+
+    def __str__(self):
+        segments = [self.root_url]
+        if self.branch:
+            segments.append(self.branch)
+        if self.url_from_root:
+            segments.append(self.url_from_root)
+        repo_url = '/'.join(segments)
+        if self.rev:
+            repo_url += '@' + self.rev
+        return repo_url
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            root_url=data.get("rootUrl"),
+            branch=data.get("branch"),
+            url_from_root=data.get("urlFromRoot"),
+            rev=data.get("rev"),
+        )
+
+
+@dataclass
+class VcsUri:
+    service_kind: str
+    service_url: str
+    repourl: RepoURL
+    protocol: str
+    subdir: str
+
+    def __str__(self):
+        uri = f"{self.service_kind.lower()}+{self.protocol}://{self.repourl}"
+        subdir = self.subdir
+        if subdir not in ["", "."]:
+            uri = uri + "#" + subdir
+        return uri
+
+    @classmethod
+    def from_dict(cls, data):
+        repo_url = data.get("repoUrl")
+        service_kind = data.get("serviceKind")
+        return cls(
+            service_kind=service_kind,
+            service_url=data.get("serviceUrl"),
+            repourl=GitRepoURL.from_dict(repo_url)
+            if service_kind == 'GIT'
+            else SvnRepoURL.from_dict(repo_url),
+            protocol=data.get("protocol"),
+            subdir=data.get("subdir"),
+        )
 
 
 @dataclass
@@ -116,6 +245,7 @@ class ProjectDefinition:
 
     @classmethod
     def from_dict(cls, data):
+        data = data.get('definition')
         dependencies = data.get('dependencies', [])
         contents = data.get('content', [])
         execution_options = data.get('executionOptions', [])
@@ -143,10 +273,14 @@ class Project:
         self,
         project_id: str,
         project_definition: ProjectDefinition,
+        project_type: ProjectType,
+        vcs_uri: Optional[VcsUri],
         project_service: ProjectService,
     ):
         self._project_id = project_id
         self._project_definition = project_definition
+        self._vcs_uri = vcs_uri or None
+        self._project_type = project_type
         self._project_sal = project_service
 
     def __repr__(self):
@@ -164,6 +298,17 @@ class Project:
         """Project id"""
         return self._project_id
 
+    @property
+    def vcs_uri(self) -> Optional[str]:
+        """Project vcs uri"""
+        return str(self._vcs_uri) if self._vcs_uri else None
+
+    @property
+    def definition(self) -> ProjectDefinition:
+        """Project definition"""
+        self._refresh()
+        return self._project_definition
+
     def delete(self):
         """Deletes a project.
 
@@ -178,7 +323,7 @@ class Project:
 
     def _refresh(self):
         self._project_definition = ProjectDefinition.from_dict(
-            self._project_sal.project_get(self._project_id)['definition']
+            self._project_sal.project_get(self._project_id)
         )
 
     def get_contents(

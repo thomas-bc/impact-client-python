@@ -165,39 +165,43 @@ class TestWorkspace:
             create_project_entity(
                 "84fb1c37abe6ed97a53972fb7239630e1212438b",
                 definition={
-                    "name": "MSL",
-                    "version": "3.2.3",
-                    "format": "1.0",
-                    "dependencies": [],
-                    "content": [
-                        {
-                            "id": "925cbe6daaf3ebde61dfcc2a26f93e6d0798085a",
-                            "relpath": "Modelica",
-                            "contentType": "MODELICA",
-                            "name": "Modelica",
-                            "defaultDisabled": False,
-                        }
-                    ],
-                    "executionOptions": [],
+                    "definition": {
+                        "name": "MSL",
+                        "version": "3.2.3",
+                        "format": "1.0",
+                        "dependencies": [],
+                        "content": [
+                            {
+                                "id": "925cbe6daaf3ebde61dfcc2a26f93e6d0798085a",
+                                "relpath": "Modelica",
+                                "contentType": "MODELICA",
+                                "name": "Modelica",
+                                "defaultDisabled": False,
+                            }
+                        ],
+                        "executionOptions": [],
+                    }
                 },
             ),
             create_project_entity(
                 "cdbde8922bd2c48c392b1b4bb740adc0273c737c",
                 definition={
-                    "name": "MSL",
-                    "version": "4.0.0",
-                    "format": "1.0",
-                    "dependencies": [],
-                    "content": [
-                        {
-                            "id": "925cbe6daaf3ebde61dfcc2a26f93e6d0798085a",
-                            "relpath": "Modelica",
-                            "contentType": "MODELICA",
-                            "name": "Modelica",
-                            "defaultDisabled": False,
-                        }
-                    ],
-                    "executionOptions": [],
+                    "definition": {
+                        "name": "MSL",
+                        "version": "4.0.0",
+                        "format": "1.0",
+                        "dependencies": [],
+                        "content": [
+                            {
+                                "id": "925cbe6daaf3ebde61dfcc2a26f93e6d0798085a",
+                                "relpath": "Modelica",
+                                "contentType": "MODELICA",
+                                "name": "Modelica",
+                                "defaultDisabled": False,
+                            }
+                        ],
+                        "executionOptions": [],
+                    }
                 },
             ),
         ]
@@ -208,20 +212,22 @@ class TestWorkspace:
             create_project_entity(
                 "cdbde8922bd2c48c392b1b4bb740adc0273c737c",
                 definition={
-                    "name": "MSL",
-                    "version": "4.0.0",
-                    "format": "1.0",
-                    "dependencies": [],
-                    "content": [
-                        {
-                            "id": "925cbe6daaf3ebde61dfcc2a26f93e6d0798085a",
-                            "relpath": "Modelica",
-                            "contentType": "MODELICA",
-                            "name": "Modelica",
-                            "defaultDisabled": False,
-                        }
-                    ],
-                    "executionOptions": [],
+                    "definition": {
+                        "name": "MSL",
+                        "version": "4.0.0",
+                        "format": "1.0",
+                        "dependencies": [],
+                        "content": [
+                            {
+                                "id": "925cbe6daaf3ebde61dfcc2a26f93e6d0798085a",
+                                "relpath": "Modelica",
+                                "contentType": "MODELICA",
+                                "name": "Modelica",
+                                "defaultDisabled": False,
+                            }
+                        ],
+                        "executionOptions": [],
+                    }
                 },
             ),
         ]

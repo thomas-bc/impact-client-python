@@ -8,6 +8,8 @@ from modelon.impact.client.entities.project import (
     Project,
     ProjectContent,
     ProjectDefinition,
+    ProjectType,
+    VcsUri,
 )
 from modelon.impact.client.entities.external_result import ExternalResult
 from modelon.impact.client.entities.model import Model
@@ -31,39 +33,41 @@ def create_workspace_entity(
 ):
     if not definition:
         definition = {
-            "name": name,
-            "format": "1.0",
-            "description": "",
-            "createdBy": "local-installation-user-id",
-            "createdAt": 1659072911361,
-            "defaultProjectId": "bf1e2f2a2fd55dcfd844bc1f252528f707254425",
-            "projects": [
-                {
-                    "reference": {"id": "bf1e2f2a2fd55dcfd844bc1f252528f707254425"},
-                    "disabled": False,
-                    "disabledContent": [],
-                }
-            ],
-            "dependencies": [
-                {
-                    "reference": {
-                        "id": "84fb1c37abe6ed97a53972fb7239630e1212438b",
-                        "name": "MSL",
-                        "version": "3.2.3",
+            "definition": {
+                "name": name,
+                "format": "1.0",
+                "description": "",
+                "createdBy": "local-installation-user-id",
+                "createdAt": 1659072911361,
+                "defaultProjectId": "bf1e2f2a2fd55dcfd844bc1f252528f707254425",
+                "projects": [
+                    {
+                        "reference": {"id": "bf1e2f2a2fd55dcfd844bc1f252528f707254425"},
+                        "disabled": False,
+                        "disabledContent": [],
+                    }
+                ],
+                "dependencies": [
+                    {
+                        "reference": {
+                            "id": "84fb1c37abe6ed97a53972fb7239630e1212438b",
+                            "name": "MSL",
+                            "version": "3.2.3",
+                        },
+                        "disabled": True,
+                        "disabledContent": [],
                     },
-                    "disabled": True,
-                    "disabledContent": [],
-                },
-                {
-                    "reference": {
-                        "id": "cdbde8922bd2c48c392b1b4bb740adc0273c737c",
-                        "name": "MSL",
-                        "version": "4.0.0",
+                    {
+                        "reference": {
+                            "id": "cdbde8922bd2c48c392b1b4bb740adc0273c737c",
+                            "name": "MSL",
+                            "version": "4.0.0",
+                        },
+                        "disabled": False,
+                        "disabledContent": [],
                     },
-                    "disabled": False,
-                    "disabledContent": [],
-                },
-            ],
+                ],
+            }
         }
     return Workspace(
         name,
@@ -124,27 +128,37 @@ def create_experiment_entity(
 
 
 def create_project_entity(
-    project_id, project_name="my_project", definition=None, project_service=None,
+    project_id,
+    project_name="my_project",
+    definition=None,
+    project_type=ProjectType.LOCAL,
+    vcs_uri=None,
+    project_service=None,
 ):
     if not definition:
         definition = {
-            "name": project_name,
-            "format": "1.0",
-            "dependencies": [{"name": "MSL", "versionSpecifier": "4.0.0"}],
-            "content": [
-                {
-                    "id": "81ac23172d7a479db85126691e090b34",
-                    "relpath": "MyPackage",
-                    "contentType": "MODELICA",
-                    "name": "MyPackage",
-                    "defaultDisabled": False,
-                }
-            ],
-            "executionOptions": [],
+            "definition": {
+                "name": project_name,
+                "format": "1.0",
+                "dependencies": [{"name": "MSL", "versionSpecifier": "4.0.0"}],
+                "content": [
+                    {
+                        "id": "81ac23172d7a479db85126691e090b34",
+                        "relpath": "MyPackage",
+                        "contentType": "MODELICA",
+                        "name": "MyPackage",
+                        "defaultDisabled": False,
+                    }
+                ],
+                "executionOptions": [],
+            }
         }
+
     return Project(
         project_id,
         ProjectDefinition.from_dict(definition),
+        project_type,
+        VcsUri.from_dict(vcs_uri) if vcs_uri else None,
         project_service or MagicMock(),
     )
 
@@ -246,7 +260,7 @@ def create_model_exe_operation(
 
 
 def create_workspace_definition():
-    return WorkspaceDefinition(
+    return WorkspaceDefinition.from_dict(
         {
             "definition": {
                 "name": "test",
